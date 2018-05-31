@@ -1,37 +1,28 @@
-'use strict';
+self.addEventListener('message', function(event) {
+    var promise = self.clients.matchAll()
+        .then(function(clientList) {
+            var senderId = event.source ? event.source.id: 'unknown';
+            if (!event.source) {
+                console.log('event.source is null; we don\'t know the sender of the ' +
+            'message');
+            }
+            clientList.forEach(function(client) {
+                if (client.id === senderId) {
+                    return;
+                }
 
-var cacheVersion = 0;
-var currentCache = {
-  offline: 'offline-cache' + cacheVersion
-};
-const offlineUrl = 'offline.html';
-
-this.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(currentCache.offline).then(function(cache) {
-      return cache.addAll([
-          './offline.svg',
-          offlineUrl
-      ]);
-    })
-  );
-});
-
-this.addEventListener('fetch', event => {
-
-  if (event.request.mode === 'navigate' || (event.request.method === 'GET' && event.request.headers.get('accept').includes('text/html'))) {
-        event.respondWith(
-          fetch(event.request.url).catch(error => {
-              // Return the offline page
-              return caches.match(offlineUrl);
+                client.postMessage({
+                    client: senderId,
+                    message: event.data
+                })
+            })
         })
-     );
-  }
-  else{
-        event.respondWith(caches.match(event.request)
-                        .then(function (response) {
-                        return response || fetch(event.request);
-                    })
-            );
-      }
+    if (event.waitUntil) {
+        event.waitUntil(promise);
+    }
 });
+
+
+self.addEventListener('activate', function(event) {
+    event.waitUntil(self.clients.claim());
+})
